@@ -4,7 +4,6 @@
 import os
 import sys
 from dotenv import load_dotenv
-from enum import Enum
 from google import genai
 from google.genai import types # used for roles
 
