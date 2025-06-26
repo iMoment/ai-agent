@@ -1,4 +1,5 @@
 import os
+from google.genai import types
 
 def get_file_content(working_directory, file_path):
     working_directory_abs_path = os.path.abspath(working_directory)
@@ -18,10 +19,18 @@ def get_file_content(working_directory, file_path):
 
     except Exception as e:
         return f"Error: {e}"
-
-
-
-# os.path.abspath: Get an absolute path from a relative path
-# os.path.join: Join two paths together safely (handles slashes)
-# .startswith: Check if a string starts with a specific substring
-# os.path.isfile: Check if a path is a file
+    
+# Builds the schema supplied to LLM, tells it how to use the function
+schema_get_file_content = types.FunctionDeclaration(
+    name="get_file_content",
+    description="Reads and returns a file from the specified filepath, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The path to the file to read from, relative to the working directory."
+            ),
+        },
+    ),
+)

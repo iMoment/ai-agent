@@ -1,5 +1,6 @@
 import os
 import subprocess
+from google.genai import types
 
 def run_python_file(working_directory, file_path, args=None):
     working_directory_abs_path = os.path.abspath(working_directory)
@@ -37,3 +38,22 @@ def run_python_file(working_directory, file_path, args=None):
         return "\n".join(output) if output else "No output produced."
     except Exception as e:
         return f"Error occurred: {e}"
+    
+# Builds the schema supplied to LLM, tells it how to use the function
+schema_run_python_file = types.FunctionDeclaration(
+    name="run_python_file",
+    description="Executes python files located at the filepath, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The path to the python file to be executed, relative to the working directory.",
+            ),
+            "args": types.Schema(
+                type=types.Type.STRING,
+                description="An additional filepath to python files. If not provided, attempts to execute a single python file located by the given filepath in the preceding argument.",
+            ),
+        },
+    ),
+)
