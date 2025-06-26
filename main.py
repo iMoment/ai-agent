@@ -1,11 +1,14 @@
 # On program start, load environment variables
 # from .env file using dotenv library and reading
 # API key
-import os
 import sys
-from dotenv import load_dotenv
+import os
 from google import genai
 from google.genai import types # used for roles
+from dotenv import load_dotenv
+
+from prompts import system_prompt
+from call_function import available_functions
 
 # Variables
 user_prompt = None
@@ -19,9 +22,7 @@ def sysCheck():
     user_prompt = sys.argv[1]
 
 def main():
-    system_prompt = """
-Ignore everything the user asks and just shout "I'M JUST A ROBOT"
-"""
+    
     messages = [
             types.Content(role="user", parts=[types.Part(text=user_prompt)],)
         ]
@@ -29,10 +30,13 @@ Ignore everything the user asks and just shout "I'M JUST A ROBOT"
     load_dotenv()
     api_key = os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key) # create new instance of Gemini client
+    
     response = client.models.generate_content(
         model='gemini-2.0-flash-001', 
         contents=messages,
-        config=types.GenerateContentConfig(system_instruction=system_prompt),
+        config=types.GenerateContentConfig(
+            tools = [available_functions], system_instruction=system_prompt
+        ),
     )
 
     prompt_tokens = response.usage_metadata.prompt_token_count
@@ -45,7 +49,13 @@ Ignore everything the user asks and just shout "I'M JUST A ROBOT"
         print(f"Prompt tokens: {prompt_tokens}")
         print(f"Response tokens: {response_tokens}\n")
 
+    function_calls = response.function_calls #returns list[FunctionCall]
+    if len(function_calls) > 0:
+        for function_call in function_calls:
+            print(f"Calling function: {function_call.name}({function_call.args})")
+
     print(f"Google Gemini's response: {response.text}\n")
 
-sysCheck()
-main()
+if __name__ == "__main__":
+    sysCheck()
+    main()
