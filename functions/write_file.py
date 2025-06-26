@@ -28,7 +28,7 @@ def write_file(working_directory, file_path, content):
 # Builds the schema supplied to LLM, tells it how to use the function
 schema_write_file = types.FunctionDeclaration(
     name="write_file",
-    description="Writes content into a file located at the specified filepath, constrained to the working directory.",
+    description="Writes content into a file located at the specified filepath, constrained to the working directory. Creates the file if it doesn't exist.",
     parameters=types.Schema(
         type=types.Type.OBJECT,
         properties={
@@ -41,5 +41,6 @@ schema_write_file = types.FunctionDeclaration(
                 description="The content to be written to the specified filepath.",
             ),
         },
+        required=["file_path", "content"],
     ),
 )

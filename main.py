@@ -8,29 +8,42 @@ from google.genai import types # used for roles
 from dotenv import load_dotenv
 
 from prompts import system_prompt
-from call_function import available_functions
+from call_function import available_functions, call_function
 
-# Variables
-user_prompt = None
-
-def sysCheck():
-    if len(sys.argv) < 2:
-        print('Usage: python3 main.py "Prompt to give Google Gemini"')
-        sys.exit(1)
-
-    global user_prompt 
-    user_prompt = sys.argv[1]
-
+# main
 def main():
-    
-    messages = [
-            types.Content(role="user", parts=[types.Part(text=user_prompt)],)
-        ]
-    
     load_dotenv()
+
+    verbose = "--verbose" in sys.argv
+    args = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+    sysCheck(args)
+
     api_key = os.environ.get("GEMINI_API_KEY")
     client = genai.Client(api_key=api_key) # create new instance of Gemini client
+
+    user_prompt = " ".join(args)
+
+    if verbose:
+        print(f"User prompt: {user_prompt}\n")
+
+    messages = [
+            types.Content(role="user", parts=[types.Part(text=user_prompt)])
+        ]
     
+    generate_content(client, messages, verbose)
+
+
+# checks proper formatting of system arguments for code execution
+def sysCheck(args):
+    if not args:
+        print("We are using Google Gemini AI Code Assistant.\n")
+        print('Usage: python3 main.py "Your prompt here" [--verbose]\n')
+        print('Example: python3 main.py "How do I fix the calculator?"')
+        sys.exit(1)
+
+# handles generation of content, handle user prompt
+def generate_content(client, messages, verbose):
+    # sets roles, passes user's prompt, provide function schemas and AI behavior
     response = client.models.generate_content(
         model='gemini-2.0-flash-001', 
         contents=messages,
@@ -39,23 +52,32 @@ def main():
         ),
     )
 
-    prompt_tokens = response.usage_metadata.prompt_token_count
-    response_tokens = response.usage_metadata.candidates_token_count
+    # show additional meta info if --verbose flag exists
+    if verbose:
+        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
+        print("Response tokens:", response.usage_metadata.candidates_token_count)
 
-    print("We are using Google Gemini AI.\n")
+    # failed to return valid list[FunctionCall]
+    if not response.function_calls:
+        return response.text
+    
+    function_responses = []
+    # handle each FunctionCall
+    for function_call_part in response.function_calls:
+        function_call_result = call_function(function_call_part, verbose)
+        if (
+            not function_call_result.parts 
+            or not function_call_result.parts[0].function_response
+        ):
+            raise Exception("Empty function call result.\n")
+        
+        if verbose:
+            print(f"-> {function_call_result.parts[0].function_response.response}")
+        
+        function_responses.append(function_call_result.parts[0])
 
-    if "--verbose" in sys.argv:
-        print(f"User prompt: {user_prompt}")
-        print(f"Prompt tokens: {prompt_tokens}")
-        print(f"Response tokens: {response_tokens}\n")
-
-    function_calls = response.function_calls #returns list[FunctionCall]
-    if len(function_calls) > 0:
-        for function_call in function_calls:
-            print(f"Calling function: {function_call.name}({function_call.args})")
-
-    print(f"Google Gemini's response: {response.text}\n")
+    if not function_responses:
+        raise Exception("No function responses were generated.\n")
 
 if __name__ == "__main__":
-    sysCheck()
     main()
