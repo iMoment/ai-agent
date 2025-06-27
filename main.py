@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 from prompts import system_prompt
 from call_function import available_functions, call_function
 
+# global variables
+counter = 0
+
 # main
 def main():
     load_dotenv()
@@ -30,8 +33,9 @@ def main():
             types.Content(role="user", parts=[types.Part(text=user_prompt)])
         ]
     
-    generate_content(client, messages, verbose)
-
+    while counter < 20:
+        generate_content(client, messages, verbose)
+        print(f"We are at counter number: {counter}")
 
 # checks proper formatting of system arguments for code execution
 def sysCheck(args):
@@ -43,14 +47,22 @@ def sysCheck(args):
 
 # handles generation of content, handle user prompt
 def generate_content(client, messages, verbose):
+    global counter
+
     # sets roles, passes user's prompt, provide function schemas and AI behavior
     response = client.models.generate_content(
         model='gemini-2.0-flash-001', 
         contents=messages,
         config=types.GenerateContentConfig(
-            tools = [available_functions], system_instruction=system_prompt
+            tools = [available_functions], system_instruction=system_prompt,
         ),
     )
+
+    # 1.
+    candidates = response.candidates # list of candidates [[candidates]]
+    for candidate in candidates:
+        messages.append(candidate.content)
+
 
     # show additional meta info if --verbose flag exists
     if verbose:
@@ -59,7 +71,11 @@ def generate_content(client, messages, verbose):
 
     # failed to return valid list[FunctionCall]
     if not response.function_calls:
-        return response.text
+        # 3.
+        print(f"LLM's final response: {response.text}")
+        counter = 20
+        return
+        # return response.text
     
     function_responses = []
     # handle each FunctionCall
@@ -75,9 +91,14 @@ def generate_content(client, messages, verbose):
             print(f"-> {function_call_result.parts[0].function_response.response}")
         
         function_responses.append(function_call_result.parts[0])
+        # 2.
+        messages.append(function_call_result)
 
     if not function_responses:
         raise Exception("No function responses were generated.\n")
+    
+    # 3.
+    counter += 1
 
 if __name__ == "__main__":
     main()
