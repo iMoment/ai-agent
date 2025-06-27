@@ -9,9 +9,7 @@ from dotenv import load_dotenv
 
 from prompts import system_prompt
 from call_function import available_functions, call_function
-
-# global variables
-counter = 0
+from config import MAX_ITERATIONS
 
 # main
 def main():
@@ -33,9 +31,21 @@ def main():
             types.Content(role="user", parts=[types.Part(text=user_prompt)])
         ]
     
-    while counter < 20:
-        generate_content(client, messages, verbose)
-        print(f"We are at counter number: {counter}")
+    iterations = 0
+    while True:
+        iterations += 1
+        if iterations > MAX_ITERATIONS:
+            print(f"Maximum iterations ({MAX_ITERATIONS}) reached.")
+            sys.exit(1)
+
+        try:
+            final_response = generate_content(client, messages, verbose)
+            if final_response:
+                print("Final response:")
+                print(final_response)
+                break
+        except Exception as e:
+            print(f"Error in generate_content: {e}")
 
 # checks proper formatting of system arguments for code execution
 def sysCheck(args):
@@ -58,24 +68,20 @@ def generate_content(client, messages, verbose):
         ),
     )
 
-    # 1.
-    candidates = response.candidates # list of candidates [[candidates]]
-    for candidate in candidates:
-        messages.append(candidate.content)
-
-
     # show additional meta info if --verbose flag exists
     if verbose:
         print("Prompt tokens:", response.usage_metadata.prompt_token_count)
         print("Response tokens:", response.usage_metadata.candidates_token_count)
 
+    # add response candidates to our list of messages
+    if response.candidates: # list of candidates [candidates]
+        for candidate in response.candidates:
+            function_call_content = candidate.content
+            messages.append(function_call_content)
+
     # failed to return valid list[FunctionCall]
     if not response.function_calls:
-        # 3.
-        print(f"LLM's final response: {response.text}")
-        counter = 20
-        return
-        # return response.text
+        return response.text
     
     function_responses = []
     # handle each FunctionCall
@@ -91,14 +97,11 @@ def generate_content(client, messages, verbose):
             print(f"-> {function_call_result.parts[0].function_response.response}")
         
         function_responses.append(function_call_result.parts[0])
-        # 2.
-        messages.append(function_call_result)
 
     if not function_responses:
-        raise Exception("No function responses were generated.\n")
-    
-    # 3.
-    counter += 1
+        raise Exception("No function responses were generated, exiting.\n")
+
+    messages.append(types.Content(role="tool", parts=function_responses))
 
 if __name__ == "__main__":
     main()
