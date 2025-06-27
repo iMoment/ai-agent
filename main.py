@@ -57,8 +57,6 @@ def sysCheck(args):
 
 # handles generation of content, handle user prompt
 def generate_content(client, messages, verbose):
-    global counter
-
     # sets roles, passes user's prompt, provide function schemas and AI behavior
     response = client.models.generate_content(
         model='gemini-2.0-flash-001', 

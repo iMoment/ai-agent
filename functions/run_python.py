@@ -37,7 +37,7 @@ def run_python_file(working_directory, file_path, args=None):
         
         return "\n".join(output) if output else "No output produced."
     except Exception as e:
-        return f"Error occurred: {e}"
+        return f"Error: executing Python file: {e}"
     
 # Builds the schema supplied to LLM, tells it how to use the function
 schema_run_python_file = types.FunctionDeclaration(
